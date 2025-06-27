@@ -1,0 +1,11 @@
+#!/bin/sh
+
+spec="$1"; shift
+
+dropprs "$spec"
+retVal=$?
+if [ ! $retVal -eq 2 ]; then
+  echo "dropprs failed with exit code $retVal"
+  exit $retVal
+fi
+exit 0

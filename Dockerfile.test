@@ -1,0 +1,29 @@
+FROM alpine:3.22
+
+COPY test /usr/local/bin
+RUN chmod +x /usr/local/bin/test-exit \
+    && chmod +x /usr/local/bin/test-id
+
+COPY target/x86_64-unknown-linux-musl/release/dropprs /usr/local/bin/
+
+# adjust users so we can make sure the tests are interesting
+RUN chgrp nobody /usr/local/bin/dropprs \
+	&& chmod +s /usr/local/bin/dropprs
+USER nobody
+ENV HOME=/nowhere/dropprs
+# now we should be nobody, ALL groups, and have a bogus useless HOME value
+
+RUN id
+
+RUN test-id 0:0 '0:0:0'
+RUN test-id 0:1000 '0:1000:1000'
+RUN test-id 1000:1000 '1000:1000:1000'
+RUN test-id 0:1000:2000 '0:1000:1000 2000'
+
+# make sure to error if no ID specified
+RUN test-exit ''
+RUN test-exit 'bogus'
+RUN test-exit '0day'
+RUN test-exit '0:bogus'
+RUN test-exit '0:0day'
+RUN test-exit 'root'
