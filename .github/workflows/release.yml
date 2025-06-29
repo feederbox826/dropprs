@@ -34,20 +34,18 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
         with:
-          targets: ${{ matrix.target }}
+          command: build
+          target: ${{ matrix.target }}
+          args: "--locked --release"
+          strip: true
 
-      - name: Restore Rust cache
-        uses: Swatinem/rust-cache@v2
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          key: artifacts
-
-      - name: Build
-        run: cargo build --verbose --release --target ${{ matrix.target }}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          path: ./target/${{ matrix.target }}/release/dropprs
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/${{ matrix.target }}/release/dropprs
+          asset_name: dropprs-${{ matrix.target }}
+          tag: ${{ github.ref }}
