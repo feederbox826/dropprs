@@ -19,8 +19,13 @@ RUN test-id 0:0 '0:0:0'
 RUN test-id 0:1000 '0:1000:1000'
 RUN test-id 1000:1000 '1000:1000:1000'
 RUN test-id 0:1000:2000 '0:1000:1000 2000'
+RUN test-id 1000:2000: '1000:2000:2000'
 
 # make sure to error if no ID specified
+RUN test-exit '::'
+RUN test-exit '0:'
+RUN test-exit ':0'
+RUN test-exit ':0:'
 RUN test-exit ''
 RUN test-exit 'bogus'
 RUN test-exit '0day'
