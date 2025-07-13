@@ -1,24 +1,15 @@
-FROM rust:alpine AS build
+ARG TARGETPLATFORM
+FROM --platform=linux/amd64 rust:alpine AS build
 ENV HOME="/root"
 WORKDIR $HOME
 
-# Install rust
-ARG TARGETPLATFORM
-RUN case "$TARGETPLATFORM" in \
-  "linux/arm64") echo "aarch64-unknown-linux-musl" > rust_target.txt ;; \
-  "linux/amd64") echo "x86_64-unknown-linux-musl" > rust_target.txt ;; \
-  *) exit 1 ;; \
-  esac
-
-# Update rustup whenever we bump the rust version
-RUN rustup target add $(cat rust_target.txt)
+# build with script
+RUN apk add alpine-sdk zig
+RUN cargo install cargo-zigbuild
 
 COPY . ./
-
-# Build
-RUN cargo build --target $(cat rust_target.txt) --release
-RUN cp target/$(cat rust_target.txt)/release/dropprs /dropprs
-RUN strip --strip-all /dropprs
+RUN chmod +x build.sh
+RUN ./build.sh
 
 FROM scratch
 COPY --from=build /dropprs /
