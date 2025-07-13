@@ -1,5 +1,5 @@
-ARG TARGETPLATFORM
 FROM --platform=linux/amd64 rust:alpine AS build
+ARG TARGETPLATFORM
 ENV HOME="/root"
 WORKDIR $HOME
 
