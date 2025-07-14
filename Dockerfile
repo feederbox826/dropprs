@@ -25,7 +25,7 @@ RUN case "$TARGETPLATFORM" in \
     "linux/arm/v6") export TARGET="arm-unknown-linux-musleabihf" ;; \
     *) export TARGET="x86_64-unknown-linux-musl" ;; \
   esac && \
-\    cp /root/target/${TARGET}/release/dropprs /dropprs
+    cp /root/target/${TARGET}/release/dropprs /dropprs
 
 FROM scratch
 COPY --from=binary /dropprs /
