@@ -1,19 +1,20 @@
 //! dropprs: Drop privileges, setuid and setgid with optional additional groups
+//! not suitable for production use
 //!
 //! Usage: dropprs <uid:gid[:addl_gid]> cmd [args]
 //! Example: dropprs 1000:1000:1005 id
 
-use nix::unistd::{execvp, setgid, setgroups, setuid, Gid, Uid};
+use nix::unistd::{execvp, setgroups, setgid, setuid, getuid, getgid, Gid, Uid};
+use nix::sys::prctl::{set_no_new_privs};
 use std::env;
 use std::ffi::CString;
 use std::process::exit;
 
-// new
-fn parse_gid(gid: &str) -> Gid {
-  match gid.parse::<u32>() {
-    Ok(g) => Gid::from_raw(g),
+fn parse_id<T>(id: &str, kind: &str, f: impl Fn(u32) -> T) -> T {
+  match id.parse::<u32>() {
+    Ok(n) => f(n),
     Err(_) => {
-      eprintln!("Invalid GID '{}'. Only numeric group IDs are supported.", gid);
+      eprintln!("Invalid {} '{}'. Only numeric IDs are supported.", kind, id);
       exit(2);
     }
   }
@@ -26,25 +27,23 @@ fn main() {
     exit(2);
   }
 
-  let userspec = &args[1];
-  let mut parts = userspec.split(':');
+  set_no_new_privs().expect("Failed to set no_new_privs");
+
+  let mut parts = args[1].split(':');
   // uid parse and check
-  let uid = match parts.next().unwrap_or(&"").parse::<u32>() {
-    Ok(u) => Uid::from_raw(u),
-    Err(_) => {
-      eprintln!("Invalid UID '{}'. Only numeric User IDs are supported.", userspec);
-      exit(2);
-    }
-  };
+  let uid_str = parts.next().unwrap_or("");
+  let uid: Uid = parse_id(uid_str, "UID", Uid::from_raw);
   // gid
-  let gid = parse_gid(parts.next().unwrap_or(&""));
-  let addl_gid: Vec<Gid> = match parts.next().unwrap_or("") {
-    "" => Vec::new(),
-    s => s.split(',')
+  let gid_str = parts.next().unwrap_or("");
+  let gid: Gid = parse_id(gid_str, "GID", Gid::from_raw);
+  // additional gids
+  let addl_gid: Vec<Gid> = parts
+      .next()
+      .unwrap_or("")
+      .split(',')
       .filter(|g| !g.is_empty())
-      .map(|g| parse_gid(g))
-      .collect(),
-  };
+      .map(|g| parse_id(g, "additional GID", Gid::from_raw))
+      .collect();
 
   let cmd_args: Vec<CString> = args[2..]
     .iter()
@@ -58,14 +57,16 @@ fn main() {
     eprintln!("No command provided to execute.");
     exit(2);
   }
-  // clear additional groups
-  setgroups(&[]).expect("Failed to clear supplementary groups");
-
+  // set groups, gid, uid
+  setgroups(&addl_gid).expect("Failed to set supplementary groups");
   setgid(gid).expect("Failed to set GID");
-  if !addl_gid.is_empty() {
-    setgroups(&addl_gid).expect("Failed to set supplementary groups");
-  }
   setuid(uid).expect("Failed to set UID");
+
+  // verify that we dropped privileges
+  if getuid() != uid || getgid() != gid {
+    eprintln!("Privilege drop failed.");
+    exit(1);
+  }
 
   match execvp(&cmd_args[0], &cmd_args) {
     Ok(_) => {}
